@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget git lzip python-is-python3 gnupg2 curl ca-certificates
+
+    - name: Install UBports GSI tools
+      run: |
+        wget https://github.com/ubports/gsi-installer/releases/download/continuous/gsi-installer
+        chmod +x gsi-installer
+        sudo mv gsi-installer /usr/local/bin/
+
+    - name: Download Halium 10 rootfs
+      run: |
+        gsi-installer get-rootfs --halium-version=10 --device=kenzo --output-dir=./halium
+
+    - name: Download UBports rootfs
+      run: |
+        wget https://ci.ubports.com/job/rootfs/job/rootfs-xenial-armhf/lastSuccessfulBuild/artifact/out/ubports-touch.rootfs-xenial-armhf.tar.gz
+        mkdir -p ubports
+        tar -xvf ubports-touch.rootfs-xenial-armhf.tar.gz -C ubports/
+
+    - name: Build GSI image
+      run: |
+        gsi-installer build-gsi --rootfs-dir=./ubports --system-dir=./halium/system --vendor-dir=./halium/vendor --output-file=./ubports-gsi.img
+
+    - name: Upload GSI image as artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: ubports-gsi.img
+        path: ./ubports-gsi.img
